@@ -4,35 +4,37 @@ import matplotlib.pyplot as plt
 
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
-from sklearn.metrics import (
-    f1_score,
-    roc_auc_score,
-    roc_curve,
-    confusion_matrix,
-    ConfusionMatrixDisplay
-)
+from sklearn.metrics import f1_score, roc_auc_score, roc_curve
+from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay
 from sklearn.linear_model import LogisticRegression
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.utils import shuffle
 
-# Load data
+
+
 df = pd.read_csv('/datasets/Churn.csv')
+df.head()
 
-# Review data
-print(df.head())
-print(df.info())
-print(df.isna().sum())
-print(df.describe())
+df.info()
 
-# Drop unnecessary columns
+
+df.isna().sum()
+
+
+
+df.describe()
+
+
 df = df.drop(['RowNumber', 'CustomerId', 'Surname'], axis=1)
+df.head()
 
-# Check target balance
+
 print(df['Exited'].value_counts())
 print()
 print(df['Exited'].value_counts(normalize=True))
 
-# Plot class distribution
+
+
 df['Exited'].value_counts().plot(kind='bar')
 plt.title('Class Distribution')
 plt.xlabel('Exited')
@@ -40,19 +42,20 @@ plt.ylabel('Count')
 plt.xticks(rotation=0)
 plt.show()
 
-# One-hot encoding
-df_ohe = pd.get_dummies(df, drop_first=True)
-print(df_ohe.head())
 
-# Replace inf values and fill missing values
+df_ohe = pd.get_dummies(df, drop_first=True)
+df_ohe.head()
+
+
 df_ohe = df_ohe.replace([np.inf, -np.inf], np.nan)
 df_ohe = df_ohe.fillna(0)
 
-# Define features and target
+
 target = df_ohe['Exited']
 features = df_ohe.drop('Exited', axis=1)
 
-# Split data
+
+
 features_train, features_temp, target_train, target_temp = train_test_split(
     features, target, test_size=0.4, random_state=12345, stratify=target
 )
@@ -65,25 +68,13 @@ print('Train:', features_train.shape)
 print('Valid:', features_valid.shape)
 print('Test:', features_test.shape)
 
-# Scale numeric columns
-numeric = ['CreditScore', 'Age', 'Tenure', 'Balance', 'NumOfProducts', 'EstimatedSalary']
-
-scaler = StandardScaler()
-scaler.fit(features_train[numeric])
-
-features_train_scaled = features_train.copy()
-features_valid_scaled = features_valid.copy()
-features_test_scaled = features_test.copy()
-
-features_train_scaled[numeric] = scaler.transform(features_train[numeric])
-features_valid_scaled[numeric] = scaler.transform(features_valid[numeric])
-features_test_scaled[numeric] = scaler.transform(features_test[numeric])
 
 print(features_train_scaled.isna().sum())
 print(features_valid_scaled.isna().sum())
 print(features_test_scaled.isna().sum())
 
-# Baseline Logistic Regression
+
+
 model_lr = LogisticRegression(random_state=12345, max_iter=1000)
 model_lr.fit(features_train_scaled, target_train)
 
@@ -94,13 +85,14 @@ print('Baseline Logistic Regression')
 print('F1:', f1_score(target_valid, pred_valid_lr))
 print('AUC-ROC:', roc_auc_score(target_valid, prob_valid_lr))
 
+
 cm = confusion_matrix(target_valid, pred_valid_lr)
 disp = ConfusionMatrixDisplay(confusion_matrix=cm)
 disp.plot()
 plt.title('Baseline Logistic Regression')
 plt.show()
 
-# Balanced Logistic Regression
+
 model_lr_balanced = LogisticRegression(
     random_state=12345,
     max_iter=1000,
@@ -116,7 +108,7 @@ print('Logistic Regression with class_weight=balanced')
 print('F1:', f1_score(target_valid, pred_valid_lr_bal))
 print('AUC-ROC:', roc_auc_score(target_valid, prob_valid_lr_bal))
 
-# Upsampling function
+
 def upsample(features, target, repeat):
     features_zeros = features[target == 0]
     features_ones = features[target == 1]
@@ -132,7 +124,8 @@ def upsample(features, target, repeat):
 
     return features_upsampled, target_upsampled
 
-repeat = int(target_train[target_train == 0].count() / target_train[target_train == 1].count())
+
+    repeat = int(target_train[target_train == 0].count() / target_train[target_train == 1].count())
 
 features_train_up, target_train_up = upsample(features_train_scaled, target_train, repeat)
 
@@ -140,7 +133,7 @@ print(target_train.value_counts())
 print()
 print(target_train_up.value_counts())
 
-# Logistic Regression with Upsampling
+
 model_lr_up = LogisticRegression(random_state=12345, max_iter=1000)
 model_lr_up.fit(features_train_up, target_train_up)
 
@@ -151,7 +144,7 @@ print('Logistic Regression with Upsampling')
 print('F1:', f1_score(target_valid, pred_valid_lr_up))
 print('AUC-ROC:', roc_auc_score(target_valid, prob_valid_lr_up))
 
-# Random Forest tuning
+
 best_model = None
 best_result = 0
 best_depth = 0
@@ -187,7 +180,9 @@ print('Estimators:', best_est)
 print('F1:', best_result)
 print('AUC-ROC:', best_auc)
 
-# Compare models
+
+
+
 results = pd.DataFrame({
     'Model': [
         'Baseline Logistic Regression',
@@ -209,7 +204,10 @@ results = pd.DataFrame({
     ]
 })
 
-print(results)
+results
+print('AUC-ROC:', best_auc)
+
+
 
 plt.figure(figsize=(8, 5))
 plt.bar(results['Model'], results['F1'])
@@ -218,7 +216,6 @@ plt.ylabel('F1 Score')
 plt.xticks(rotation=25, ha='right')
 plt.show()
 
-# Final test evaluation
 pred_test = best_model.predict(features_test)
 prob_test = best_model.predict_proba(features_test)[:, 1]
 
@@ -226,7 +223,7 @@ print('Final Test Results')
 print('F1:', f1_score(target_test, pred_test))
 print('AUC-ROC:', roc_auc_score(target_test, prob_test))
 
-# ROC Curve
+
 fpr, tpr, thresholds = roc_curve(target_test, prob_test)
 
 plt.figure(figsize=(7, 5))
@@ -238,7 +235,7 @@ plt.title('ROC Curve - Final Model')
 plt.legend()
 plt.show()
 
-# Final confusion matrix
+
 cm_test = confusion_matrix(target_test, pred_test)
 disp = ConfusionMatrixDisplay(confusion_matrix=cm_test)
 disp.plot()
